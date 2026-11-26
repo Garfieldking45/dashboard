@@ -296,6 +296,14 @@ dialog::backdrop{background:rgba(2,18,14,.55)}
 .sw span{width:44px;height:44px;border-radius:50%;background:var(--c);box-shadow:0 0 0 1px var(--line)}
 .sw input:checked+span{box-shadow:0 0 0 3px var(--panel),0 0 0 6px var(--c)}
 .sw input:focus-visible+span{outline:3px solid var(--focus);outline-offset:6px}
+.welcome{position:fixed;inset:0;z-index:45;background:var(--board);color:var(--bink);display:flex;flex-direction:column;align-items:center;padding:max(44px,env(safe-area-inset-top)) 24px max(24px,env(safe-area-inset-bottom));cursor:pointer;overflow:hidden;--occ:var(--board);animation:wslide .35s cubic-bezier(.2,.8,.2,1)}
+@keyframes wslide{from{transform:translateX(-100%)}to{transform:none}}
+.wtop{text-align:center}
+.wtime{display:flex;justify-content:center;align-items:flex-start;font-weight:800;line-height:.9;letter-spacing:-.02em;font-size:min(22vw,26vh,200px);font-variant-numeric:tabular-nums;white-space:nowrap}
+.wdate{margin-top:14px;font-size:clamp(20px,3vw,32px);font-weight:600;color:var(--bsoft)}
+.wmain{flex:1;display:grid;place-items:center;text-align:center}
+.wmain h2{font-size:clamp(44px,10vw,110px);font-weight:800;letter-spacing:-.02em;line-height:1}
+.whint{font-size:14px;color:var(--bmuted)}
 </style>
 </head>
 <body>
@@ -405,6 +413,12 @@ dialog::backdrop{background:rgba(2,18,14,.55)}
     <p class="ninfo" id="ninfo"></p>
   </div>
   <p class="nhint">Tap anywhere to return</p>
+</div>
+
+<div class="welcome" id="welcome" hidden role="dialog" aria-label="Welcome" tabindex="-1">
+  <div class="wtop"><div class="wtime" id="wtime"></div><p class="wdate" id="wdate"></p></div>
+  <div class="wmain"><h2>Welcome</h2></div>
+  <p class="whint">Swipe left or tap to close</p>
 </div>
 
 <dialog id="setDlg" aria-labelledby="setH">
@@ -646,6 +660,7 @@ function tick(){
   const now=new Date();
   renderClock(now);
   clocksTick(now);
+  if(welcomeOn)renderWelcome(now);
   if(T.running)renderTimer();
   if(now.getMinutes()!==lastMin){lastMin=now.getMinutes();everyMinute(now)}
   setTimeout(tick,1000-now.getMilliseconds()+8);
@@ -1362,6 +1377,35 @@ function clocksTick(now){
   if(changed){save();if(toolDlg.open){if(tab==='alarm')renderAlarms();else if(tab==='cd')renderCD()}}
   setTxt(clocksLbl,S.cd.running?fmtDur(cdMs()):S.sw.running?fmtSW(swMs()).slice(0,-3):'Clocks');
 }
+
+/* welcome screen: swipe right to show, swipe left or tap to close */
+const welcomeEl=$('#welcome');
+let welcomeOn=false,swipe=null;
+function renderWelcome(now){
+  $('#wtime').innerHTML=clockHTML(clockParts(now));
+  setTxt($('#wdate'),now.toLocaleDateString(LOC,{weekday:'long',month:'long',day:'numeric',year:'numeric'}));
+}
+function openWelcome(){
+  if(welcomeOn)return;
+  welcomeOn=true;renderWelcome(new Date());welcomeEl.hidden=false;welcomeEl.focus({preventScroll:true});
+}
+function closeWelcome(){if(!welcomeOn)return;welcomeOn=false;welcomeEl.hidden=true}
+const swipeBlocked=t=>!!(t.closest&&t.closest('input,textarea,select,[contenteditable]'))||document.querySelector('dialog[open]')||nightOn||!ringEl.hidden;
+addEventListener('touchstart',e=>{
+  if(e.touches.length!==1){swipe=null;return}
+  const t=e.touches[0];
+  swipe={x:t.clientX,y:t.clientY,at:Date.now(),skip:!welcomeOn&&swipeBlocked(e.target)};
+},{passive:true});
+addEventListener('touchend',e=>{
+  const sw=swipe;swipe=null;
+  if(!sw||sw.skip||!e.changedTouches.length)return;
+  const t=e.changedTouches[0],dx=t.clientX-sw.x,dy=t.clientY-sw.y;
+  if(Date.now()-sw.at>900||Math.abs(dx)<70||Math.abs(dy)>Math.abs(dx)*.6)return;
+  if(dx>0)openWelcome();else closeWelcome();
+},{passive:true});
+addEventListener('touchcancel',()=>{swipe=null},{passive:true});
+welcomeEl.addEventListener('click',closeWelcome);
+addEventListener('keydown',e=>{if(e.key==='Escape')closeWelcome()});
 
 /* settings extras and offline mode */
 function offLine(){
