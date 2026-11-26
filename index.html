@@ -417,7 +417,7 @@ dialog::backdrop{background:rgba(2,18,14,.55)}
 
 <div class="welcome" id="welcome" hidden role="dialog" aria-label="Welcome" tabindex="-1">
   <div class="wtop"><div class="wtime" id="wtime"></div><p class="wdate" id="wdate"></p></div>
-  <div class="wmain"><h2>Welcome</h2></div>
+  <div class="wmain"><h2 id="wmsg">Welcome</h2></div>
   <p class="whint">Swipe left or tap to close</p>
 </div>
 
@@ -462,6 +462,15 @@ dialog::backdrop{background:rgba(2,18,14,.55)}
         <h3>Weather alerts</h3>
         <label class="swrow" for="wAlerts"><input type="checkbox" id="wAlerts">Show alerts for rain, storms, wind, heat and frost</label>
         <p class="hint">Alerts look at the next 12 hours of the forecast and appear under the current temperature.</p>
+      </section>
+      <section class="srow">
+        <h3>Welcome screen</h3>
+        <label class="fld" for="wText" style="margin-top:0">Message (shown when you swipe right)</label>
+        <div class="locbar">
+          <input class="field" id="wText" maxlength="60" placeholder="Welcome" autocomplete="off" enterkeyhint="done">
+          <button type="button" class="btn" id="wPrev">Preview</button>
+        </div>
+        <p class="hint">Leave it empty to show "Welcome".</p>
       </section>
       <section class="srow">
         <h3>Night clock</h3>
@@ -594,7 +603,7 @@ const isUS=/^en(-US)?$/i.test(LOC);
 /* state */
 let h12=true;
 try{h12=new Intl.DateTimeFormat(LOC,{hour:'numeric'}).resolvedOptions().hour12!==false}catch(e){}
-const DEF={unit:isUS?'F':'C',h12,theme:'system',nightAuto:true,nightFrom:'22:00',nightTo:'07:00',focusMin:25,shortMin:5,longMin:15,awake:false,accent:'green',alerts:true};
+const DEF={unit:isUS?'F':'C',h12,theme:'system',nightAuto:true,nightFrom:'22:00',nightTo:'07:00',focusMin:25,shortMin:5,longMin:15,awake:false,accent:'green',alerts:true,welcome:'Welcome'};
 let S={};
 try{S=JSON.parse(localStorage.getItem(KEY))||{}}catch(e){S={}}
 S.settings=Object.assign({},DEF,S.settings||{});
@@ -1383,6 +1392,7 @@ const welcomeEl=$('#welcome');
 let welcomeOn=false,swipe=null;
 function renderWelcome(now){
   $('#wtime').innerHTML=clockHTML(clockParts(now));
+  setTxt($('#wmsg'),(st.welcome||'').trim()||'Welcome');
   setTxt($('#wdate'),now.toLocaleDateString(LOC,{weekday:'long',month:'long',day:'numeric',year:'numeric'}));
 }
 function openWelcome(){
@@ -1405,6 +1415,8 @@ addEventListener('touchend',e=>{
 },{passive:true});
 addEventListener('touchcancel',()=>{swipe=null},{passive:true});
 welcomeEl.addEventListener('click',closeWelcome);
+$('#wText').addEventListener('input',e=>{st.welcome=e.target.value.slice(0,60);save()});
+$('#wPrev').addEventListener('click',()=>{setDlg.close();openWelcome()});
 addEventListener('keydown',e=>{if(e.key==='Escape')closeWelcome()});
 
 /* settings extras and offline mode */
@@ -1416,6 +1428,7 @@ function offLine(){
 function fillExtras(){
   $('#accentBox').innerHTML=Object.entries(PAL).map(([k,p])=>`<label class="sw"><input type="radio" name="accent" value="${k}"${st.accent===k?' checked':''}><span style="--c:${p.c||hsl(p.h,p.s,p.l)}"></span>${esc(p.n)}</label>`).join('');
   $('#wAlerts').checked=!!st.alerts;
+  $('#wText').value=st.welcome==null?'Welcome':st.welcome;
   $('#offState').textContent=offLine();
 }
 function initClocks(){
